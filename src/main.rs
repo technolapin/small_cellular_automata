@@ -16,7 +16,7 @@ struct Grid
 
 struct Neighborhood
 {
-    neighbors: Vec<Vec<Position>>,
+    neighbors: Vec<Vec<usize>>,
     w: usize,
     h: usize,
     size: usize
@@ -85,12 +85,12 @@ impl Grid
         !changes.is_empty()
     }
     
-    fn transition_life(&self, i: usize, ngh: std::slice::Iter<Position>) -> Cell
+    fn transition_life(&self, i: usize, ngh: std::slice::Iter<usize>) -> Cell
     {
         let mut s = 0;
-        for pos in ngh
+        for i in ngh
         {
-            s += self.datas[pos_to_index(*pos, self.w)];
+            s += self.datas[*i];
         }
         
         if s < 2 || s > 3
@@ -129,7 +129,7 @@ impl Neighborhood
                     {
                         if x != i || y != j
                         {
-                            ngh[n].push((x, y));
+                            ngh[n].push(pos_to_index((x, y), w));
                         }
                     }
                 }
