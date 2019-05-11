@@ -1,0 +1,210 @@
+/**
+Pas d'array, pas de problèmes!
+Tout en vec
+*/
+
+const W: usize = 10;
+const H: usize = 10;
+const SIZE: usize = W*H;
+
+
+
+fn pos_to_index((i, j): (usize, usize)) -> usize
+{
+    j*W+i
+}
+
+fn index_to_pos(n: usize) -> (usize, usize)
+{
+    (n%W, n/W)
+}
+
+fn moore() -> Vec<Vec<(usize, usize)>>
+{
+    let mut ngh = Vec::new();
+    let mut n = 0;
+    for j in 0..H
+    {
+        for i in 0..W
+        {
+            n = pos_to_index((i, j));
+            ngh.push(Vec::new());
+            for x in (i.max(1)-1)..(i.min(W-2)+2)
+            {
+                for y in (j.max(1)-1)..(j.min(H-2)+2)
+                {
+                    if (x != i || y != j)
+                    {
+                        ngh[n].push((x, y));
+                    }
+                }
+            }
+        }
+    }
+    ngh
+}
+
+fn blocks() -> (Vec<Vec<(usize, usize)>>, Vec<Vec<(usize, usize)>>)
+{
+    let mut ngh0 = Vec::new();
+    let mut ngh1 = Vec::new();
+    let mut n = 0;
+    for j in 0..H
+    {
+        for i in 0..W
+        {
+            
+            n = pos_to_index((i, j));
+            ngh0.push(Vec::new());
+            ngh1.push(Vec::new());
+            let block_x1 = (i as isize/2)*2;
+            let block_x2 = ((i as isize-1)/2)*2;
+            let block_y1 = (j as isize/2)*2;
+            let block_y2 = ((j as isize-1)/2)*2;
+            
+            for x in block_x1.max(0) as usize..((block_x1+2) as usize).min(W)
+            {
+                for y in block_y1.max(0) as usize..((block_y1+2) as usize).min(H)
+                {
+                    ngh0[n].push((x, y));
+                }
+            }
+            for x in block_x2.max(0) as usize..((block_x2+2) as usize).min(W)
+            {
+                for y in block_y2.max(0) as usize..((block_y2+2) as usize).min(H)
+                {
+                    ngh1[n].push((x, y));
+                }
+            }
+        }
+    }
+    (ngh0, ngh1)
+}
+
+
+
+
+
+fn new_data() -> Vec<u8>
+{
+    let mut data = Vec::new();
+    for i in 0..SIZE
+    {
+        data.push(0);
+    }
+    data
+}
+
+fn set_data(datas: &mut Vec<u8>, value: u8, pos: (usize, usize))
+{
+    datas[pos_to_index(pos)] = value;
+}
+
+fn get_data(datas: &Vec<u8>, pos: (usize, usize)) -> u8
+{
+    datas[pos_to_index(pos)]
+}
+
+fn print_grid(datas: &Vec<u8>)
+{
+    for j in 0..H
+    {
+        for i in 0..W
+        {
+            print!("{} ", get_data(datas, (i, j)));
+        }
+        println!("");
+    }
+}
+
+fn step_life(datas0: &Vec<u8>, datas1: &mut Vec<u8>, ngh: &Vec<Vec<(usize, usize)>>)
+{
+    for i in 0..SIZE
+    {
+        let mut s = 0;
+        for cell in ngh[i].iter()
+        {
+            s += datas0[pos_to_index(*cell)];
+        }
+        if (s < 2 || s > 3)
+        {
+            datas1[i] = 0;
+        }
+        else if (s==3)
+        {
+            datas1[i] = 1;
+        }
+        else
+        {
+            datas1[i] = datas0[i];
+        }
+    }
+}
+
+fn step_blocks(datas0: &Vec<u8>, datas1: &mut Vec<u8>, ngh: &Vec<Vec<(usize, usize)>>)
+{
+    for id in 0..SIZE
+    {
+        let mut i = W;
+        let mut j = H;
+        for cell in ngh[id].iter()
+        {
+            let (x, y) = *cell;
+            i = i.min(x);
+            j = j.min(y);
+        }
+        //println!("{} {}", i, j);
+        datas1[id] = (pos_to_index((i, j)) % 256) as u8;
+    }
+}
+
+
+
+fn test_life()
+{
+    let mut values = new_data();
+    let mut values2 = new_data();
+    let ngh_moore = moore();
+
+    set_data(&mut values, 1, (2, 1));
+    set_data(&mut values, 1, (1, 0));
+    set_data(&mut values, 1, (2, 2)); 
+    set_data(&mut values, 1, (1, 2));
+    set_data(&mut values, 1, (0, 2));
+
+    for i in 0..16
+    {
+        println!("step {}", i);
+        print_grid(&values);
+        step_life(&values, &mut values2, &ngh_moore);
+        println!("step {} bis", i);
+        print_grid(&values2);
+        step_life(&values2, &mut values, &ngh_moore);
+    }
+
+}
+
+fn test_blocks()
+{
+    let (ngh_bl0, ngh_bl1) = blocks();
+    let mut values0 = new_data();
+    let mut values1 = new_data();
+    set_data(&mut values0, 1, (0, 2));
+
+    for i in 0..16
+    {
+        println!("step {}", i);
+        print_grid(&values0);
+        step_blocks(&values0, &mut values1, &ngh_bl0);
+        println!("step {} bis", i);
+        print_grid(&values1);
+        step_blocks(&values1, &mut values0, &ngh_bl1);        
+    }
+
+}
+
+fn main() {
+    test_life();
+}
+
+

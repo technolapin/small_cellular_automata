@@ -5,3 +5,6 @@ authors = ["technolapin <clement.chomicki@protonmail.fr>"]
 edition = "2018"
 
 [dependencies]
+image = "*"
+rand = "*"
+orbclient="*"

@@ -3,6 +3,14 @@ Pas d'array, pas de problèmes!
 Tout en vec
 */
 
+extern crate image;
+extern crate rand;
+extern crate orbclient;
+
+use orbclient::{Color, EventOption, GraphicsPath, Mode, Renderer, Window};
+
+use rand::Rng;
+
 type Cell = u8;
 type Position = (usize, usize);
 
@@ -14,20 +22,19 @@ struct Grid
     size: usize
 }
 
+
 struct Neighborhood
 {
     neighbors: Vec<Vec<usize>>,
-    w: usize,
-    h: usize,
-    size: usize
 }
+
 
 impl Grid
 {
     fn new (w: usize, h: usize) -> Self
     {
         let mut datas = Vec::new();
-        for i in 0..(w*h)
+        for _ in 0..(w*h)
         {
             datas.push(0);
         }
@@ -63,9 +70,28 @@ impl Grid
             println!("");
         }
     }
+    fn print_formated(&self, code: &Vec<&str>)
+    {
+        for j in 0..self.h
+        {
+            for i in 0..self.w
+            {
+                let v = self.get_data((i, j)) as usize;
+                if v < code.len()
+                {
+                    print!("{} ", code[v]);
+                }
+                else
+                {
+                    print!("{} ", v);
+                }
+            }
+            println!("");
+        }
+    }
 
     // return true as long as there is change
-    fn step_life(&mut self, ngh: &Neighborhood) -> bool 
+    fn step_life(&mut self, ngh: &Neighborhood) -> Vec<(usize, Cell)>
     {
         let mut changes = Vec::new();
         for i in 0..self.size
@@ -82,7 +108,7 @@ impl Grid
             self.datas[*i] = *new_value;
         }
 
-        !changes.is_empty()
+        changes
     }
     
     fn transition_life(&self, i: usize, ngh: std::slice::Iter<usize>) -> Cell
@@ -106,7 +132,92 @@ impl Grid
             self.datas[i]
         }
     }
-    
+
+    fn make_image(&self, palette: &Vec<[u8; 4]>)  -> image::ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>>
+    {
+        let mut img = image::RgbaImage::new(self.w as u32, self.h as u32);
+        for i in 0..self.size
+        {
+            let (x, y) = index_to_pos(i, self.w);
+            let value = self.datas[i] as usize;
+            if value < palette.len()
+            {
+                img.put_pixel(x as u32, y as u32, image::Rgba(palette[value]));
+            }
+            else
+            {
+                img.put_pixel(x as u32, y as u32, image::Rgba([0, 0, 0, 0]));
+            }
+        }
+        img
+    }
+    fn update_image(&self, img: &mut image::ImageBuffer<image::Rgba<u8>, std::vec::Vec<u8>>, changes: &Vec<(usize, Cell)>, palette: &Vec<[u8; 4]>)
+    {
+
+        for (i, value) in changes.iter()
+        {
+            let (x, y) = index_to_pos(*i, self.w);
+            if (*value as usize) < palette.len()
+            {
+                img.put_pixel(x as u32, y as u32, image::Rgba(palette[*value as usize]));
+            }
+            else
+            {
+                img.put_pixel(x as u32, y as u32, image::Rgba([0, 255, 0, 0]));
+            }
+            
+        }
+    }
+
+    fn randomise(&mut self, min: Cell, max: Cell) //supose que Cell est un entier
+    {
+        let mut rng = rand::thread_rng();
+
+        for i in 0..self.size
+        {
+            self.datas[i] = rng.gen_range(min, max);
+        }
+    }
+    fn draw_on_screen(&self,
+                      window: &mut orbclient::Window,
+                      pas: u32,
+                      palette: &Vec<[u8; 4]>)
+    {
+        for i in 0..self.size
+        {
+            let (x, y) = index_to_pos(i, self.w);
+            if self.datas[i] == 1
+            {
+                let col = palette[self.datas[i] as usize];
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(col[0], col[1], col[2], 255-col[3]));
+            }
+
+        }
+        window.sync();
+    }
+    fn update_screen(&self,
+                     changes: &Vec<(usize, Cell)>,
+                     window: &mut orbclient::Window,
+                     pas: u32,
+                     palette: &Vec<[u8; 4]>)
+    {
+        for (i, value) in changes.iter()
+        {
+            let (x, y) = index_to_pos(*i, self.w);
+            if *value == 1
+            {
+                let col = palette[*value as usize];
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(col[0], col[1], col[2], 255-col[3]));
+            }
+            else
+            {
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(0, 0, 0, 255));
+
+            }
+
+        }
+        window.sync();
+    }
 }
 
 
@@ -116,12 +227,11 @@ impl Neighborhood
     fn new_moore(w: usize, h: usize) -> Self
     {
         let mut ngh = Vec::new();
-        let mut n = 0;
         for j in 0..h
         {
             for i in 0..w
             {
-                n = pos_to_index((i, j), w);
+                let n = pos_to_index((i, j), w);
                 ngh.push(Vec::new());
                 for x in (i.max(1)-1)..(i.min(w-2)+2)
                 {
@@ -139,9 +249,6 @@ impl Neighborhood
         Neighborhood
         {
             neighbors: ngh,
-            w: w,
-            h: h,
-            size: w*h
         }
     }
 
@@ -153,30 +260,98 @@ fn pos_to_index((i, j): Position, w: usize) -> usize
     j*w+i
 }
 
-fn index_to_pos(n: usize, w: usize) -> (usize, usize)
+fn index_to_pos(n: usize, w: usize) -> Position
 {
     (n%w, n/w)
 }
 
 fn main() {
 
-    let mut grid = Grid::new(100, 100);
-    let moore_ngh = Neighborhood::new_moore(100, 100);
 
+    let (w, h) = (400, 400);
+
+        
+    let (width, height) = orbclient::get_display_size().unwrap();
+
+    let (ratio_w, ratio_h) = (width as f32/w as f32, height as f32/h as f32);
+
+    let pas = ratio_w.min(ratio_h).floor().max(1.) as u32;
+    let window_width = w as u32*pas;
+    let window_height = h as u32*pas;
+    let mut window = Window::new_flags(
+        0,
+        0,
+        window_width,
+        window_height,
+        "TITLE",
+        &[
+            orbclient::WindowFlag::Transparent,
+            orbclient::WindowFlag::Async,
+        ]
+    )
+    .unwrap();
+
+
+    
+    let mut grid = Grid::new(w, h);
+    let moore_ngh = Neighborhood::new_moore(w, h);
+
+    let code = vec!["·", "@"];
     grid.set_data(1, (2, 1));
     grid.set_data(1, (1, 0));
     grid.set_data(1, (2, 2)); 
     grid.set_data(1, (1, 2));
     grid.set_data(1, (0, 2));
 
+    grid.randomise(0, 2);
+    
+    let colors = vec![
+        [0, 0, 0, 255],
+        [150, 150, 0, 0]
+    ];
     
     //grid.print();
     
-    while grid.step_life(&moore_ngh)
+    let mut n = 0;
+    let mut img = grid.make_image(&colors);
+    img.save(format!("images/frame-{:04}.bmp", n));
+    //grid.print_formated(&code);
+
+    
+    let mut changes = grid.step_life(&moore_ngh); 
+
+
+    grid.draw_on_screen(&mut window, pas, &colors);
+
+   'events:  while !changes.is_empty()
     {
-        //grid.print();
+        n += 1;
+        println!("step {}", n);
+
+        grid.update_image(&mut img, &changes, &colors);
+        //img.save(format!("images/frame-{:04}.bmp", n));
+        //grid.print_formated(&code);
+        changes = grid.step_life(&moore_ngh);
+        grid.update_screen(&changes, &mut window, pas, &colors);
+
+        'nul: for event in window.events() {
+            println!("{:?}", event.to_option());
+            match event.to_option() {
+                EventOption::Quit(_quit_event) => break 'events,
+                    
+                EventOption::Mouse(evt) => println!(
+                "At position {:?} pixel color is : {:?}",
+                (evt.x, evt.y),
+                window.getpixel(evt.x, evt.y)
+            ),
+                event_option => println!("{:?}", event_option),
+                 
+                _ => break 'nul
+            }
+        }
     }
 
+    
     
 }
 
