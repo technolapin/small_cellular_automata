@@ -181,6 +181,7 @@ impl Grid
     fn draw_on_screen(&self,
                       window: &mut orbclient::Window,
                       pas: u32,
+                      gap: u32,
                       palette: &Vec<[u8; 4]>)
     {
         for i in 0..self.size
@@ -189,7 +190,7 @@ impl Grid
             if self.datas[i] == 1
             {
                 let col = palette[self.datas[i] as usize];
-                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(col[0], col[1], col[2], 255-col[3]));
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas-gap, pas-gap, Color::rgba(col[0], col[1], col[2], 255-col[3]));
             }
 
         }
@@ -199,6 +200,7 @@ impl Grid
                      changes: &Vec<(usize, Cell)>,
                      window: &mut orbclient::Window,
                      pas: u32,
+                     gap: u32,
                      palette: &Vec<[u8; 4]>)
     {
         for (i, value) in changes.iter()
@@ -207,11 +209,11 @@ impl Grid
             if *value == 1
             {
                 let col = palette[*value as usize];
-                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(col[0], col[1], col[2], 255-col[3]));
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas-gap, pas-gap, Color::rgba(col[0], col[1], col[2], 255-col[3]));
             }
             else
             {
-                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas, pas, Color::rgba(0, 0, 0, 255));
+                window.rect((x as u32*pas) as i32, (y as u32*pas) as i32, pas-gap, pas-gap, Color::rgba(0, 0, 0, 255));
 
             }
 
@@ -265,14 +267,17 @@ fn index_to_pos(n: usize, w: usize) -> Position
     (n%w, n/w)
 }
 
+
+
 fn main() {
 
-
-    let (w, h) = (400, 400);
-
-        
+    let gap = 0;
     let (width, height) = orbclient::get_display_size().unwrap();
 
+    let (w, h) = (width as usize, height as usize);
+    //let (w, h) = (80, 80);
+
+    
     let (ratio_w, ratio_h) = (width as f32/w as f32, height as f32/h as f32);
 
     let pas = ratio_w.min(ratio_h).floor().max(1.) as u32;
@@ -304,10 +309,10 @@ fn main() {
     grid.set_data(1, (0, 2));
 
     grid.randomise(0, 2);
-    
+   
     let colors = vec![
         [0, 0, 0, 255],
-        [150, 150, 0, 0]
+        [160, 130, 0, 0]
     ];
     
     //grid.print();
@@ -321,29 +326,39 @@ fn main() {
     let mut changes = grid.step_life(&moore_ngh); 
 
 
-    grid.draw_on_screen(&mut window, pas, &colors);
+    grid.draw_on_screen(&mut window, pas, gap, &colors);
 
    'events:  while !changes.is_empty()
     {
         n += 1;
         println!("step {}", n);
 
-        grid.update_image(&mut img, &changes, &colors);
+//        grid.update_image(&mut img, &changes, &colors);
         //img.save(format!("images/frame-{:04}.bmp", n));
         //grid.print_formated(&code);
         changes = grid.step_life(&moore_ngh);
-        grid.update_screen(&changes, &mut window, pas, &colors);
+        grid.update_screen(&changes, &mut window, pas, gap, &colors);
 
         'nul: for event in window.events() {
             println!("{:?}", event.to_option());
             match event.to_option() {
                 EventOption::Quit(_quit_event) => break 'events,
                     
-                EventOption::Mouse(evt) => println!(
-                "At position {:?} pixel color is : {:?}",
-                (evt.x, evt.y),
-                window.getpixel(evt.x, evt.y)
-            ),
+                EventOption::Mouse(evt) =>
+                {
+                    println!(
+                        "At position {:?} pixel color is : {:?}",
+                        (evt.x, evt.y),
+                        window.getpixel(evt.x, evt.y)
+                    );
+                    let x = (evt.x as f32 / pas as f32) as usize;
+                    let y = (evt.y as f32 / pas as f32) as usize;
+                    grid.set_data(
+                        1 - grid.get_data((x, y)),
+                        (x, y)
+                    );
+                    
+                },
                 event_option => println!("{:?}", event_option),
                  
                 _ => break 'nul
