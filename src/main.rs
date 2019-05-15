@@ -269,12 +269,50 @@ fn index_to_pos(n: usize, w: usize) -> Position
 
 
 
+fn life_catalogue_parse(rle: &str) -> Vec<(usize, usize)>
+{
+    let mut x = 0;
+    let mut y = 0;
+    let mut mul = 1;
+
+    let mut cells = Vec::new();
+    
+    for c in rle.chars()
+    {
+        if c == 'b'
+        {
+            x += mul;
+            mul = 1;
+        } else
+        if c == '$'
+        {
+            y += mul;
+            x = 0;
+            mul = 1;
+        } else
+        if c == 'o'
+        {
+            while mul > 1
+            {
+                mul -= 1;
+                cells.push((x, y));
+                x += 1;
+            }
+        } else
+        {
+            let parse = c.
+        }
+    }
+
+    cells
+}
+
 fn main() {
 
-    let gap = 0;
+    let gap = 1;
     let (width, height) = orbclient::get_display_size().unwrap();
 
-    let (w, h) = (width as usize, height as usize);
+    let (w, h) = (width as usize/4, height as usize/4);
     //let (w, h) = (80, 80);
 
     
@@ -302,13 +340,72 @@ fn main() {
     let moore_ngh = Neighborhood::new_moore(w, h);
 
     let code = vec!["·", "@"];
+    /*
     grid.set_data(1, (2, 1));
     grid.set_data(1, (1, 0));
     grid.set_data(1, (2, 2)); 
     grid.set_data(1, (1, 2));
     grid.set_data(1, (0, 2));
+    */
+    let gun = vec![
+        (0usize, 4),
+        (0, 5),
+        (1, 4),
+        (1, 5),
 
-    grid.randomise(0, 2);
+        (13, 2),
+        (12, 2),
+        (11, 3),
+        (10, 4),
+        (10, 5),
+        (10, 6),
+        (11, 7),
+        (12, 8),
+        (13, 8),
+
+        (14, 5),
+        
+        (15, 3),
+        (15, 7),
+        (16, 4),
+        (16, 5),
+        (16, 6),
+        (17, 5),
+
+        (20, 4),
+        (20, 3),
+        (20, 2),
+        (21, 4),
+        (21, 3),
+        (21, 2),
+
+        (22, 1),
+        (22, 5),
+
+        (24, 0),
+        (24, 1),
+
+        (24, 5),
+        (24, 6),
+
+        (34, 2),
+        (34, 3),
+        (35, 2),
+        (35, 3)
+
+    ];
+
+    for (x, y) in gun.iter()
+    {
+        grid.set_data(1, (x+1usize, y+1usize));
+    }
+
+    for (x, y) in gun.iter()
+    {
+        grid.set_data(1, (100-x, y+3usize));
+    }
+
+//    grid.randomise(0, 2);
    
     let colors = vec![
         [0, 0, 0, 255],
